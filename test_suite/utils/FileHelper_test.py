@@ -1,0 +1,114 @@
+import os
+import sys
+
+import pytest
+
+import feedwork.utils.FileHelper as fileu
+
+
+def test_isfile():
+    assert fileu.isfile("/etc/passwd")
+    assert not fileu.isfile("/etc")
+    assert not fileu.isfile("")
+
+
+def test_isdir():
+    assert not fileu.isdir("/etc/passwd")
+    assert fileu.isdir("/etc")
+    assert fileu.isdir("/")
+    assert not fileu.isfile("")
+
+
+def test_cat_path():
+    drive, path = os.path.splitdrive(fileu.cat_path("/abc/", "abc"))
+    assert path == "{0}abc{0}abc".format(os.path.sep)
+
+    drive, path = os.path.splitdrive(fileu.cat_path("/", "path"))
+    assert path == "{0}path".format(os.path.sep)
+
+    drive, path = os.path.splitdrive(fileu.cat_path("/", ""))
+    assert path == os.path.sep
+
+    drive, path = os.path.splitdrive(fileu.cat_path("/abc", "file.txt"))
+    assert path == "{0}abc{0}file.txt".format(os.path.sep)
+
+    drive, path = os.path.splitdrive(fileu.cat_path("/", "path", "sub", "file.md"))
+    assert path == "{0}path{0}sub{0}file.md".format(os.path.sep)
+
+    with pytest.raises(Exception):
+        fileu.cat_path("/abc/", "../def")
+
+    drive, path = os.path.splitdrive(fileu.cat_path("/", "usr", "local", check_exist='dir'))
+    assert path == "{0}usr{0}local".format(os.path.sep)
+    with pytest.raises(Exception):
+        fileu.cat_path("/", "usr", "local", check_exist='file')
+
+    drive, path = os.path.splitdrive(fileu.cat_path("/", "etc", "passwd", check_exist='file'))
+    assert path == "{0}etc{0}passwd".format(os.path.sep)
+    with pytest.raises(Exception):
+        fileu.cat_path("/", "etc", "passwd", check_exist='dir')
+
+
+def test_linecount():
+    filepath = "/tmp/xxx"
+    ftext = f"\nlksdjf\n88888888\n "
+    fileu.write(filepath, ftext)
+    assert fileu.linecount(filepath) == 4
+
+
+def test_size():
+    filepath = "/tmp/xxx"
+    fileu.write(filepath, "ftext\r\n")
+    assert fileu.size(filepath) == 7
+    assert fileu.size(filepath, readable=True) == f"{7 / 1024:.2f} KB"
+
+    ftext = ""
+    n_line = 1024  # 生成的文件的行数
+    for i in range(1024):
+        ftext += f"{i:10d}\n"  # 每行11个字符
+    text_size = 11 * n_line
+    fileu.write(filepath, ftext)
+    assert fileu.size(filepath) == text_size
+    assert fileu.size(filepath, readable=True) == f"{text_size / 1024:.2f} KB"
+
+
+def test_readForString():
+    file = "/tmp/test_readForString"
+
+    assert fileu.readForString("") is None
+    assert fileu.readForString("/") is None
+
+    content = ""
+    with open(file, "w") as f:
+        f.write(content)
+    assert fileu.readForString(file) == content
+
+    content = " "
+    with open(file, "w") as f:
+        f.write(content)
+    assert fileu.readForString(file) == content
+
+    with open(file, "w") as f:
+        f.write(" ")
+        f.write("\n")
+        f.write(" a 框架  ")
+    assert fileu.readForString(file) == " \n a 框架  "
+
+
+def test_write():
+    filepath = "/tmp/xxx1"
+    fileu.write(filepath, "")
+    assert os.path.exists(filepath)
+
+    fileu.write(filepath, "1\n ", append=True)
+    fileu.write(filepath, " \n", append=True)
+
+    with open(filepath) as f:
+        lines = f.readlines()
+        assert len(lines) == 2
+        assert lines[0] == "1\n"
+        assert lines[1] == "  \n"
+
+
+if __name__ == "__main__":
+    pytest.main(["-q", os.path.basename(sys.argv[0])])
