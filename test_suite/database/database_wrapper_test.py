@@ -86,6 +86,27 @@ def test_execute():
         db.close()
 
 
+def test_executemany():
+    db_config = __set_dbinfo(autocommit=False)
+    db = DatabaseWrapper(db_config)
+    try:
+        db.execute("CREATE TABLE db_wrapper_test(id int null, name varchar(64) null)")
+        parameters = []
+        for i in range(0, 200):
+            parameters.append((i, 'abc'))
+        inser_num = db.executemany("INSERT INTO db_wrapper_test(id, name) VALUES(%s, %s)", parameters)
+        assert inser_num == 200
+        db.commit()
+        result = db.query("SELECT COUNT(*) AS num FROM db_wrapper_test", (), QueryResultType.JSON)
+        assert result[0]["num"] == 200
+    except Exception as e:
+        raise RuntimeError(e)
+    finally:
+        db.execute("DROP TABLE db_wrapper_test")
+        db.commit()
+        db.close()
+
+
 def test_begin_transaction():
     db_config = __set_dbinfo(autocommit=True)
     db = DatabaseWrapper(db_config)

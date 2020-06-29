@@ -18,13 +18,21 @@ class DatabaseWrapper(object):
     # PYTHON天然不支持多个构造器，导致JAVA中重载类构造函数的写法变更为PYTHON构造函数中默认参数的实现方式，在实际使用角度，
     # 此时若不传递builder参数，则认为使用默认的builder参数、dbinfo从配置文件中读取，因此原文中的内部类及构造器Builder无
     # 法按原设计来写，所以Builder类修改为DataBaseConfig类，该类作为属性类使用。
-    def __init__(self, dbconfig: DatabaseConfig = DatabaseConfig()):
+    def __init__(self, dbname: str = None, dbconfig: DatabaseConfig = DatabaseConfig()):
+        """
+        数据库操作类初始化。
 
+        :param dbname: str.在使用dbinfo.conf配置数据库的情况下，若想在多数据源中指定数据源进行操作，则使用该参数，
+                            该参数表示dbinfo.conf配置文件中的name，程序会优先判断该参数，若该参数不为空，则根据传递的值使用指定的数据源。
+        :param dbconfig: DatabaseConfig.该参数常用于使用自建数据库的情况，但是也可以用于在使用dbinfo.conf配置数据库的情况下使用指定数据源。
+        """
         # __NULL_FETCH_SIZE = -238949899  # 随便一个不会被用到的数字
 
         # 若DatabaseWrapper用于创建单次连接，则配置文件中的数据库信息不应该被设置为使用连接池，所以new一万次DatabaseWrapper不会构造一次连接池
         # 若DatabaseWrapper用于创建连接池，init_database_pool对象只会初始化一次连接池，所以不管该对象会new一万次还是放在全局变量使用都只会初始化一次连接池
-        if dbconfig.dbinfo is None:
+        if dbname is not None:
+            self.dbinfo = dbinfo.get(dbname)
+        elif dbconfig.dbinfo is None:
             self.dbinfo = dbinfo.get(dbconfig.name)
         else:
             self.dbinfo = dbconfig.dbinfo
@@ -74,8 +82,8 @@ class DatabaseWrapper(object):
         # conn.closed不反映服务器关闭/切断的连接。它仅表示客户端使用connection.close()关闭的连接
         if self.is_closed():
             raise RuntimeError("The connection is closed before begin transaction!")
-        if self.dbinfo.autocommit is False:
-            logger.warning("Already begin transaction")
+        if self.database_manager.get_or_set_autocommit(self.__conn_origin) is False:
+            logger.debug("Already begin transaction")
             return
 
         self.database_manager.get_or_set_autocommit(self.__conn_origin, False)
@@ -102,6 +110,28 @@ class DatabaseWrapper(object):
         if self.dbinfo.show_sql_time:
             start_time = time.time()
         self.cursor.execute(sql, params)
+        if self.dbinfo.show_sql:
+            logger.info(f"{self.id} execute sql: [{sql}]")
+        if self.dbinfo.show_sql_time:
+            sql_execute_time = time.time() - start_time
+            if 0 < self.dbinfo.longtime_sql < sql_execute_time:
+                logger.warning(f"{self.id} [LONGTIME SQL(EXECUTE)] elapse time {sql_execute_time}s, sql=[ {sql} ]")
+
+        """Number of rows read from the backend in the last command."""
+        return self.cursor.rowcount
+
+    def executemany(self, sql: str, params: list):
+        """
+        执行SQL的增加、删除、修改的批量操作。
+
+        :param sql: str.操作数据库的SQL语句，包含：INSERT INTO、DELETE、UPDATE。
+        :param params: list.SQL语句的参数，如：[(1,'ab'), (2, 'cd')]
+        :return int.SQL执行后影响的行数。
+        """
+        # sql = DatabaseWrapper.__transform_sql(sql)
+        if self.dbinfo.show_sql_time:
+            start_time = time.time()
+        self.cursor.executemany(sql, params)
         if self.dbinfo.show_sql:
             logger.info(f"{self.id} execute sql: [{sql}]")
         if self.dbinfo.show_sql_time:

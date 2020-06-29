@@ -103,10 +103,19 @@ def __set_dbinfo(autocommit=False):
     return db_config
     
 db_config = __set_dbinfo()
-db = DatabaseWrapper(db_config)
+db = DatabaseWrapper(dbconfig=db_config)
 # 具体数据库操作同上
 ```
 ##### 在使用配置文件连接数据库情况下，在多数据库连接中指定连接进行数据库操作：
+```
+from feedwork.database.database_wrapper import DatabaseWrapper
+
+
+# 指定配置文件中名字为mysql的数据库连接
+db = DatabaseWrapper(name="mysql")
+# 具体数据库操作不变
+```
+或者
 ```
 from feedwork.database.database_wrapper import DatabaseWrapper
 from feedwork.database.bean.database_config import DatabaseConfig
@@ -118,7 +127,7 @@ db_config.name = "mysql"
 db_config.need_id = True
 db_config.desc = "测试用"
 
-db = DatabaseWrapper(db_config)
+db = DatabaseWrapper(dbconfig=db_config)
 # 具体数据库操作不变
 ```
 ##### 使用自建的数据库连接：
