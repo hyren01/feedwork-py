@@ -16,6 +16,8 @@ python3 -m pip install -U git+http://139.9.126.19:38111/FdcoreHyren/feedwork-py.
 2. 生成发布压缩包：python3 setup.py sdist。完成后会在dist目录下生成一个gz压缩文件
 3. 把该gz文件上传需安装的主机，解压文件并进入解压目录，执行：python3 setup.py install
 
+或者直接编译成 whl 文件： python3 setup.py bdist_wheel （生成在dist下）
+
 ## 源码测试
 1. 安装pytest： python3 -m pip install pytest
 2. 运行测试用例
